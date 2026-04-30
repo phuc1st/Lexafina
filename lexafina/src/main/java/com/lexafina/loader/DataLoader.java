@@ -25,7 +25,7 @@ import java.util.stream.StreamSupport;
 public class DataLoader {
 
     private static final Pattern MOCK_TEST_FILE = Pattern.compile("mock_test_(\\d+)\\.json");
-    private static final Pattern QUIZ_FILE = Pattern.compile("(full|part_\\d+)_(\\d+)\\.json");
+    private static final Pattern QUIZ_FILE = Pattern.compile("(full|part_\\d+|part_2&3)_(\\d+)\\.json");
     private static final Pattern SKILL_PATTERN = Pattern.compile("^(Reading|Listening)\\s*-\\s*Test\\s+(\\d+)$", Pattern.CASE_INSENSITIVE);
 
     @Value("${lexafina.data-path}")
@@ -86,6 +86,10 @@ public class DataLoader {
             }
         }
 
+        // Nạp riêng Writing/Speaking vì source data không theo cấu trúc Reading/Listening.
+        loadWritingData(new File(root, "writing"));
+        loadSpeakingData(new File(root, "speaking"));
+
         buildQuestionIndex();
 
         log.info("Loaded {} mock tests, {} quizzes, {} questions",
@@ -139,6 +143,83 @@ public class DataLoader {
             log.debug("Loaded quiz: id={}", quizId);
         } catch (IOException e) {
             log.warn("Failed to parse quiz: {}", file.getAbsolutePath(), e);
+        }
+    }
+
+    /**
+     * Nạp toàn bộ quiz Writing (task_type_1/task_type_2) trực tiếp vào quizMap.
+     * Writing không có mock_test_*.json, nên chỉ lấy quiz detail có data.id hợp lệ.
+     */
+    private void loadWritingData(File writingRoot) {
+        if (!writingRoot.exists() || !writingRoot.isDirectory()) return;
+        loadWritingDirectory(writingRoot);
+    }
+
+    private void loadWritingDirectory(File dir) {
+        File[] files = dir.listFiles();
+        if (files == null) return;
+        for (File f : files) {
+            if (f.isDirectory()) {
+                loadWritingDirectory(f);
+                continue;
+            }
+            if (!f.getName().toLowerCase().endsWith(".json")) continue;
+            loadWritingQuiz(f);
+        }
+    }
+
+    private void loadWritingQuiz(File file) {
+        try {
+            JsonNode root = mapper.readTree(file);
+            JsonNode dataNode = root.path("data");
+            if (dataNode.isMissingNode() || !dataNode.has("id")) return;
+
+            long quizId = dataNode.path("id").asLong(0);
+            if (quizId <= 0) return;
+            quizMap.put(quizId, dataNode);
+        } catch (IOException e) {
+            log.warn("Failed to parse writing quiz: {}", file.getAbsolutePath(), e);
+        }
+    }
+
+    /**
+     * Nạp Speaking theo cấu trúc forecast folders:
+     * - mock_test_*.json -> mockTestMap/allMockTests
+     * - full_*.json, part_*.json, part_2&3_*.json -> quizMap
+     */
+    private void loadSpeakingData(File speakingRoot) {
+        if (!speakingRoot.exists() || !speakingRoot.isDirectory()) return;
+        loadSpeakingDirectory(speakingRoot, null);
+    }
+
+    private void loadSpeakingDirectory(File dir, String bookTitle) {
+        File[] files = dir.listFiles();
+        if (files == null) return;
+
+        String nextBookTitle = bookTitle;
+        if (bookTitle == null && dir.getParentFile() != null &&
+                "speaking".equalsIgnoreCase(dir.getParentFile().getName())) {
+            nextBookTitle = dir.getName();
+        }
+
+        for (File f : files) {
+            if (f.isDirectory()) {
+                loadSpeakingDirectory(f, nextBookTitle);
+                continue;
+            }
+            if (!f.getName().toLowerCase().endsWith(".json")) continue;
+
+            Matcher mockMatcher = MOCK_TEST_FILE.matcher(f.getName());
+            if (mockMatcher.matches()) {
+                loadMockTest(f, nextBookTitle != null ? nextBookTitle : "Speaking");
+                continue;
+            }
+
+            Matcher quizMatcher = QUIZ_FILE.matcher(f.getName());
+            if (quizMatcher.matches()) {
+                long quizId = Long.parseLong(quizMatcher.group(2));
+                loadQuiz(f, quizId);
+            }
         }
     }
 

@@ -21,6 +21,8 @@ public class MockTestService {
 
     private static final int SKILL_READING = 1;
     private static final int SKILL_LISTENING = 2;
+    private static final int SKILL_WRITING = 7;
+    private static final int SKILL_SPEAKING = 8;
 
     private final DataLoader dataLoader;
 
@@ -75,15 +77,16 @@ public class MockTestService {
      * @param sort     "asc" | "desc" — sort theo bookTitle
      * @throws IllegalArgumentException nếu part không hợp lệ với skill
      */
-    public PagedResponse<QuizSummary> listQuizzes(String skill, Integer part,
+    public PagedResponse<QuizSummary> listQuizzes(String skill, Integer part, Integer taskType,
                                                   int page, int pageSize, String sort) {
         int skillId = resolveSkillId(skill);
         validatePart(skillId, part);
+        validateTaskType(skillId, taskType);
 
         int safePageSize = Math.min(Math.max(pageSize, 1), 50);
         int safePage = Math.max(page, 1);
 
-        List<QuizSummary> all = collectQuizzes(skillId, part);
+        List<QuizSummary> all = collectQuizzes(skillId, part, taskType);
 
         sortQuizzes(all, sort);
 
@@ -111,6 +114,8 @@ public class MockTestService {
         if (skill == null) return SKILL_READING;
         return switch (skill.toLowerCase()) {
             case "listening" -> SKILL_LISTENING;
+            case "writing" -> SKILL_WRITING;
+            case "speaking" -> SKILL_SPEAKING;
             default -> SKILL_READING;
         };
     }
@@ -129,6 +134,15 @@ public class MockTestService {
 
     private void validatePart(int skillId, Integer part) {
         if (part == null) return;
+        if (skillId == SKILL_WRITING) {
+            throw new IllegalArgumentException("Writing does not support part filter");
+        }
+        if (skillId == SKILL_SPEAKING) {
+            if (!(part == 1 || part == 2 || part == 3 || part == 23)) {
+                throw new IllegalArgumentException("Speaking part must be 1, 2, 3 or 23");
+            }
+            return;
+        }
         if (part < 1 || part > 4) {
             throw new IllegalArgumentException("part must be between 1 and 4");
         }
@@ -137,7 +151,20 @@ public class MockTestService {
         }
     }
 
-    private List<QuizSummary> collectQuizzes(int skillId, Integer part) {
+    private void validateTaskType(int skillId, Integer taskType) {
+        if (taskType == null) return;
+        if (skillId != SKILL_WRITING) {
+            throw new IllegalArgumentException("task_type is only supported for writing");
+        }
+        if (taskType != 1 && taskType != 2) {
+            throw new IllegalArgumentException("task_type must be 1 or 2");
+        }
+    }
+
+    private List<QuizSummary> collectQuizzes(int skillId, Integer part, Integer taskType) {
+        if (skillId == SKILL_WRITING) {
+            return collectWritingQuizzes(taskType);
+        }
         List<QuizSummary> out = new ArrayList<>();
         for (MockTest mt : dataLoader.getAllMockTests()) {
             if (mt.getSkillId() != skillId || mt.getQuizzes() == null) continue;
@@ -148,6 +175,9 @@ public class MockTestService {
             if (part == null || part == 3) addQuizSummary(out, mt, q.getPart3(), 3);
             if (skillId == SKILL_LISTENING && (part == null || part == 4)) {
                 addQuizSummary(out, mt, q.getPart4(), 4);
+            }
+            if (skillId == SKILL_SPEAKING && (part == null || part == 23)) {
+                addQuizSummary(out, mt, q.getPart23(), 23);
             }
         }
         return out;
@@ -164,12 +194,58 @@ public class MockTestService {
                 .title(lookupQuizTitle(ref.getId()))
                 .time(ref.getTime())
                 .questionCount(ref.getQuestionCount())
+                .taskType(null)
                 .slug(ref.getSlug())
                 .mockTestId(mt.getId())
                 .mockTestTitle(mt.getTitle())
                 .bookTitle(mt.getBookTitle())
                 .thumbnail(mt.getThumbnail())
                 .build());
+    }
+
+    /**
+     * Thu thập quiz Writing trực tiếp từ quizMap vì Writing không có mock_test.
+     */
+    private List<QuizSummary> collectWritingQuizzes(Integer taskType) {
+        List<QuizSummary> out = new ArrayList<>();
+        for (Map.Entry<Long, JsonNode> entry : dataLoader.getQuizMap().entrySet()) {
+            JsonNode node = entry.getValue();
+            if (node == null || node.path("type").asInt(-1) != SKILL_WRITING) continue;
+
+            int writingTaskType = node.path("writing_task_type").asInt(0);
+            if (taskType != null && writingTaskType != taskType) continue;
+
+            long quizId = entry.getKey();
+            String title = node.path("title").asText(null);
+            String slug = node.path("slug").asText(null);
+            String thumbnail = node.path("thumbnail").asText(null);
+            int time = node.path("time").asInt(0);
+
+            int questionCount = 0;
+            JsonNode questions = node.path("questions");
+            if (questions.isArray()) {
+                questionCount = questions.size();
+            }
+
+            String writingBookTitle = writingTaskType == 1 ? "Writing Task 1" :
+                    (writingTaskType == 2 ? "Writing Task 2" : "Writing");
+
+            out.add(QuizSummary.builder()
+                    .id(quizId)
+                    .part(0)
+                    .skillId(SKILL_WRITING)
+                    .title(title)
+                    .time(time)
+                    .questionCount(questionCount)
+                    .taskType(writingTaskType == 0 ? null : writingTaskType)
+                    .slug(slug)
+                    .mockTestId(0)
+                    .mockTestTitle(null)
+                    .bookTitle(writingBookTitle)
+                    .thumbnail(thumbnail)
+                    .build());
+        }
+        return out;
     }
 
     private String lookupQuizTitle(long quizId) {

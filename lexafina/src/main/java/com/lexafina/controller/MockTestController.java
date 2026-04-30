@@ -40,11 +40,12 @@ public class MockTestController {
     public ResponseEntity<ApiResponse<PagedResponse<QuizSummary>>> listQuizzes(
             @RequestParam(defaultValue = "reading") String skill,
             @RequestParam(required = false) Integer part,
+            @RequestParam(name = "task_type", required = false) Integer taskType,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(name = "page_size", defaultValue = "10") int pageSize,
             @RequestParam(defaultValue = "desc") String sort) {
 
-        PagedResponse<QuizSummary> result = service.listQuizzes(skill, part, page, pageSize, sort);
+        PagedResponse<QuizSummary> result = service.listQuizzes(skill, part, taskType, page, pageSize, sort);
         return ResponseEntity.ok(ApiResponse.ok(result));
     }
 

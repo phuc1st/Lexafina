@@ -24,6 +24,9 @@ public class QuizSummary {
     @JsonProperty("question_count")
     private int questionCount;
 
+    @JsonProperty("task_type")
+    private Integer taskType;
+
     private String slug;
 
     @JsonProperty("mock_test_id")

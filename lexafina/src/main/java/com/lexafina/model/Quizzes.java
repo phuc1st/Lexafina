@@ -21,4 +21,7 @@ public class Quizzes {
 
     @JsonProperty("part_4")
     private QuizRef part4;
+
+    @JsonProperty("part_2&3")
+    private QuizRef part23;
 }
