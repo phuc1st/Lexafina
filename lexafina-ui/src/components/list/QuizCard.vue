@@ -9,7 +9,7 @@ import { imageUrl } from '../../services/assets'
  */
 const props = defineProps({
   quiz: { type: Object, required: true }, // QuizSummary từ backend
-  skill: { type: String, required: true }, // 'reading' | 'listening'
+  skill: { type: String, required: true }, // 'reading' | 'listening' | 'writing' | 'speaking'
 })
 
 const router = useRouter()
@@ -28,8 +28,16 @@ const badge = computed(() => PART_COLORS[props.quiz.part] || { bg: '#6b7280', la
 const thumb = computed(() => imageUrl(props.quiz.thumbnail))
 
 function open() {
+  const routeNameBySkill = {
+    reading: 'reading',
+    listening: 'listening',
+    writing: 'writing-practice',
+    speaking: 'speaking-practice',
+  }
+  const routeName = routeNameBySkill[props.skill]
+  if (!routeName) return
   router.push({
-    name: props.skill,
+    name: routeName,
     params: { quizId: props.quiz.id },
   })
 }

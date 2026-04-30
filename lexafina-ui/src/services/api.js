@@ -23,9 +23,23 @@ export const api = {
   listMockTests: ({ skill = 'reading', page = 1, pageSize = 10, sort = 'desc' } = {}) =>
     request(`/mock-tests?skill=${skill}&page=${page}&page_size=${pageSize}&sort=${sort}`),
 
-  // Phân trang theo bài lẻ (Reading: part 1-3, Listening: part 1-4).
-  // part = null/undefined → backend trả tất cả part.
-  listQuizzes: ({ skill = 'reading', part = null, page = 1, pageSize = 16, sort = 'desc' } = {}) => {
+  /**
+   * API: GET /api/quizzes
+   * Params:
+   * - skill: reading|listening|writing|speaking
+   * - part: filter part (reading/listening/speaking)
+   * - taskType: 1|2 (chỉ cho writing, map -> task_type)
+   * - page, pageSize, sort
+   * Response: PagedResponse<QuizSummary>
+   */
+  listQuizzes: ({
+    skill = 'reading',
+    part = null,
+    taskType = null,
+    page = 1,
+    pageSize = 16,
+    sort = 'desc',
+  } = {}) => {
     const qs = new URLSearchParams({
       skill,
       page: String(page),
@@ -33,6 +47,7 @@ export const api = {
       sort,
     })
     if (part != null) qs.set('part', String(part))
+    if (taskType != null) qs.set('task_type', String(taskType))
     return request(`/quizzes?${qs.toString()}`)
   },
 

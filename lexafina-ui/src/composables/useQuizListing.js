@@ -4,16 +4,18 @@ import { api } from '../services/api'
 
 const PAGE_SIZE = 16
 
-// Số part hợp lệ theo skill (UI cần biết để render radio).
+// Số part hợp lệ theo skill.
 export const PARTS_BY_SKILL = {
   reading: [1, 2, 3],
   listening: [1, 2, 3, 4],
+  speaking: [1, 2, 3, 23],
+  writing: [],
 }
 
 /**
  * State + data fetching cho trang list bài luyện.
  * - URL query là source of truth → refresh/bookmark giữ filter.
- * - Filter changes (skill/mode/part) tự reset page về 1 ở setter.
+ * - Filter changes (skill/mode/part/taskType) tự reset page về 1 ở setter.
  * - Keyword là client-side filter, không gọi lại API.
  *
  * Status (Bài chưa làm/đã làm) hiện chỉ là UI placeholder; sau này có auth
@@ -27,8 +29,14 @@ export function useQuizListing() {
   const mode = ref(normalizeMode(route.query.mode))
   const status = ref(normalizeStatus(route.query.status))
   const selectedPart = ref(parsePart(route.query.part, skill.value))
+  const taskType = ref(parseTaskType(route.query.task_type, skill.value))
   const keyword = ref(route.query.q || '')
   const page = ref(parsePage(route.query.page))
+
+  // Guard: writing không hỗ trợ mocktest trong phase hiện tại.
+  if (skill.value === 'writing' && mode.value === 'mocktest') {
+    mode.value = 'quiz'
+  }
 
   const data = ref({ items: [], total: 0 })
   const loading = ref(false)
@@ -63,6 +71,7 @@ export function useQuizListing() {
   function buildQuery() {
     const q = { mode: mode.value, status: status.value }
     if (selectedPart.value != null) q.part = selectedPart.value
+    if (taskType.value != null) q.task_type = taskType.value
     if (keyword.value.trim()) q.q = keyword.value.trim()
     if (page.value > 1) q.page = page.value
     return q
@@ -85,6 +94,7 @@ export function useQuizListing() {
         res = await api.listQuizzes({
           skill: skill.value,
           part: selectedPart.value,
+          taskType: taskType.value,
           page: page.value,
           pageSize: PAGE_SIZE,
         })
@@ -109,20 +119,38 @@ export function useQuizListing() {
     if (s === skill.value) return
     skill.value = normalizeSkill(s)
     selectedPart.value = null
+    taskType.value = null
+    // Writing chỉ hỗ trợ quiz mode.
+    if (skill.value === 'writing' && mode.value === 'mocktest') {
+      mode.value = 'quiz'
+    }
     page.value = 1
   }
 
   function setMode(m) {
     if (m === mode.value) return
     mode.value = normalizeMode(m)
-    if (mode.value === 'mocktest') selectedPart.value = null
+    if (mode.value === 'mocktest') {
+      selectedPart.value = null
+      taskType.value = null
+    }
     page.value = 1
   }
 
   function setPart(p) {
     const next = p == null ? null : Number(p)
+    const valid = PARTS_BY_SKILL[skill.value] || []
+    if (next != null && !valid.includes(next)) return
     if (next === selectedPart.value) return
     selectedPart.value = next
+    page.value = 1
+  }
+
+  function setTaskType(t) {
+    const next = t == null ? null : Number(t)
+    if (next != null && next !== 1 && next !== 2) return
+    if (next === taskType.value) return
+    taskType.value = next
     page.value = 1
   }
 
@@ -142,7 +170,7 @@ export function useQuizListing() {
 
   // Watch các filter có ảnh hưởng tới API call → fetch + sync URL
   watch(
-    [skill, mode, selectedPart, page],
+    [skill, mode, selectedPart, taskType, page],
     () => {
       syncUrl()
       fetchData()
@@ -158,6 +186,7 @@ export function useQuizListing() {
     mode,
     status,
     selectedPart,
+    taskType,
     keyword,
     page,
     pageSize: PAGE_SIZE,
@@ -171,6 +200,7 @@ export function useQuizListing() {
     setSkill,
     setMode,
     setPart,
+    setTaskType,
     setStatus,
     setKeyword,
     setPage,
@@ -179,7 +209,10 @@ export function useQuizListing() {
 }
 
 function normalizeSkill(s) {
-  return s === 'listening' ? 'listening' : 'reading'
+  if (s === 'listening') return 'listening'
+  if (s === 'writing') return 'writing'
+  if (s === 'speaking') return 'speaking'
+  return 'reading'
 }
 
 function normalizeMode(m) {
@@ -191,10 +224,18 @@ function normalizeStatus(s) {
 }
 
 function parsePart(raw, skill) {
+  if (skill === 'writing') return null
   if (raw == null || raw === '') return null
   const n = Number(raw)
   const valid = PARTS_BY_SKILL[skill] || []
   return valid.includes(n) ? n : null
+}
+
+function parseTaskType(raw, skill) {
+  if (skill !== 'writing') return null
+  if (raw == null || raw === '') return null
+  const n = Number(raw)
+  return n === 1 || n === 2 ? n : null
 }
 
 function parsePage(raw) {
