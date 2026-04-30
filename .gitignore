@@ -1,0 +1,6 @@
+*
+!.gitignore
+!lexafina/
+!lexafina/**
+!lexafina-ui/
+!lexafina-ui/**
