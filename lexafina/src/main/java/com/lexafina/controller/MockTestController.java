@@ -5,6 +5,7 @@ import com.lexafina.dto.*;
 import com.lexafina.model.MockTest;
 import com.lexafina.service.MockTestService;
 import com.lexafina.service.SubmissionService;
+import com.lexafina.service.WritingSubmissionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,6 +17,7 @@ public class MockTestController {
 
     private final MockTestService service;
     private final SubmissionService submissionService;
+    private final WritingSubmissionService writingSubmissionService;
 
     @GetMapping("/mock-tests")
     public ResponseEntity<ApiResponse<PagedResponse<BookGroup>>> listMockTests(
@@ -66,6 +68,17 @@ public class MockTestController {
     public ResponseEntity<ApiResponse<?>> submitAnswers(@RequestBody SubmissionRequest request) {
         return submissionService.evaluate(request)
                 .<ResponseEntity<ApiResponse<?>>>map(r -> ResponseEntity.ok(ApiResponse.ok(r)))
+                .orElseGet(() -> ResponseEntity.status(404)
+                        .body(ApiResponse.notFound("Quiz not found: " + request.getQuizId())));
+    }
+
+    /**
+     * Tiếp nhận bài Writing (4 phần). Hiện chỉ nhận payload, chưa lưu/chấm.
+     */
+    @PostMapping("/writing/submissions")
+    public ResponseEntity<ApiResponse<?>> submitWriting(@RequestBody WritingSubmissionRequest request) {
+        return writingSubmissionService.accept(request)
+                .<ResponseEntity<ApiResponse<?>>>map(ack -> ResponseEntity.ok(ApiResponse.ok(ack)))
                 .orElseGet(() -> ResponseEntity.status(404)
                         .body(ApiResponse.notFound("Quiz not found: " + request.getQuizId())));
     }

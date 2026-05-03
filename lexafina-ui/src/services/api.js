@@ -60,4 +60,15 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ quizId, answers }),
     }),
+
+  /**
+   * API: POST /api/writing/submissions
+   * Nhận bài Writing (4 khối). Response: { quizId, received }.
+   * @param {{ quizId: number, introduction?: string, overview?: string, body1?: string, body2?: string, wordCount?: number }} payload
+   */
+  submitWriting: (payload) =>
+    request('/writing/submissions', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
 }

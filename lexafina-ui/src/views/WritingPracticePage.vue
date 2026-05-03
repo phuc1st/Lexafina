@@ -6,6 +6,7 @@ import WritingPromptPanel from '../components/practice-writing/WritingPromptPane
 import WritingEditorPanel from '../components/practice-writing/WritingEditorPanel.vue'
 import { useWritingPractice } from '../composables/useWritingPractice'
 import { useUiStore } from '../stores/ui'
+import { api } from '../services/api'
 
 const route = useRoute()
 const router = useRouter()
@@ -36,11 +37,30 @@ function onSaveDraft() {
   ui.showToast('Đã lưu nháp', 'success')
 }
 
-function onComplete() {
+async function onComplete() {
   saveDraft()
   stopTimer()
-  ui.showToast('Đã hoàn thành phiên luyện Writing (MVP local).', 'info')
-  router.push({ name: 'practice-list', params: { skill: 'writing' } })
+  const qid = writing.value?.id
+  if (qid == null) {
+    ui.showToast('Thiếu mã đề, không thể gửi bài.', 'error')
+    return
+  }
+  try {
+    const d = draftSections.value
+    await api.submitWriting({
+      quizId: qid,
+      introduction: d.introduction,
+      overview: d.overview,
+      body1: d.body1,
+      body2: d.body2,
+      wordCount: wordCount.value,
+    })
+    clearDraft()
+    ui.showToast('Đã gửi bài Writing lên server.', 'success')
+    router.push({ name: 'practice-list', params: { skill: 'writing' } })
+  } catch (e) {
+    ui.showToast(e?.message || 'Gửi bài thất bại.', 'error')
+  }
 }
 </script>
 
