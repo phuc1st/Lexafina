@@ -16,7 +16,7 @@ const {
   loading,
   error,
   writing,
-  draftText,
+  draftSections,
   wordCount,
   timerFormatted,
   stopTimer,
@@ -52,27 +52,42 @@ function onComplete() {
     </div>
     <div v-else-if="!writing" class="py-20 text-center text-slate-500">Không có dữ liệu đề.</div>
 
-    <div v-else class="grid grid-cols-1 xl:grid-cols-2 gap-5 min-h-[72vh]">
-      <WritingPromptPanel
-        :prompt-title="writing.promptTitle"
-        :prompt-html="writing.promptHtml"
-        :instruction-html="writing.instructionHtml"
-        :graph-image-url="writing.graphImageUrl"
-        :graph-description="writing.graphDescription"
-      />
+    <div
+      v-else
+      class="grid grid-cols-1 xl:grid-cols-2 gap-5 min-h-[72vh] xl:min-h-0 xl:h-[calc(100vh-7.5rem)]"
+    >
+      <div class="flex flex-col min-h-0 xl:h-full">
+        <div
+          class="flex-1 min-h-[320px] xl:min-h-0 overflow-y-auto overscroll-y-contain rounded-xl scrollbar-thin"
+        >
+          <WritingPromptPanel
+            :prompt-title="writing.promptTitle"
+            :prompt-html="writing.promptHtml"
+            :instruction-html="writing.instructionHtml"
+            :graph-image-url="writing.graphImageUrl"
+            :graph-description="writing.graphDescription"
+          />
+        </div>
+      </div>
 
-      <WritingEditorPanel
-        v-model="draftText"
-        :word-count="wordCount"
-        :min-words="writing.minWords"
-        :max-words="writing.maxWords"
-        :timer="timerFormatted"
-        :logical-frames="writing.logicalFrames"
-        :show-reference="showReference"
-        @toggle-reference="showReference = !showReference"
-        @save="onSaveDraft"
-        @complete="onComplete"
-      />
+      <div class="flex flex-col min-h-0 xl:h-full">
+        <div
+          class="flex-1 min-h-[320px] xl:min-h-0 overflow-y-auto overscroll-y-contain rounded-xl scrollbar-thin"
+        >
+          <WritingEditorPanel
+            v-model="draftSections"
+            :word-count="wordCount"
+            :min-words="writing.minWords"
+            :max-words="writing.maxWords"
+            :timer="timerFormatted"
+            :logical-frames="writing.logicalFrames"
+            :show-reference="showReference"
+            @toggle-reference="showReference = !showReference"
+            @save="onSaveDraft"
+            @complete="onComplete"
+          />
+        </div>
+      </div>
     </div>
   </AppLayout>
 </template>

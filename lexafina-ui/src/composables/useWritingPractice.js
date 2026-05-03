@@ -3,6 +3,16 @@ import { api } from '../services/api'
 import { mapWritingQuiz } from '../services/writingMapper'
 import { useTimer } from './useTimer'
 
+/** Khởi tạo object nháp 4 section (IELTS Writing Task 1 layout). */
+function emptyDraftSections() {
+  return {
+    introduction: '',
+    overview: '',
+    body1: '',
+    body2: '',
+  }
+}
+
 /**
  * Quản lý state Writing practice: load quiz, editor content, draft local, timer.
  */
@@ -10,7 +20,8 @@ export function useWritingPractice() {
   const loading = ref(false)
   const error = ref(null)
   const writing = ref(null)
-  const draftText = ref('')
+  /** Nội dung nháp theo 4 khối: Introduction, Overview, Body 1, Body 2 */
+  const draftSections = ref(emptyDraftSections())
 
   const {
     formatted: timerFormatted,
@@ -21,7 +32,9 @@ export function useWritingPractice() {
   } = useTimer(60 * 60)
 
   const wordCount = computed(() => {
-    const words = draftText.value
+    const s = draftSections.value
+    const combined = [s.introduction, s.overview, s.body1, s.body2].join('\n')
+    const words = combined
       .trim()
       .split(/\s+/)
       .filter(Boolean)
@@ -58,25 +71,45 @@ export function useWritingPractice() {
    */
   function saveDraft() {
     if (!draftStorageKey.value) return
-    localStorage.setItem(draftStorageKey.value, draftText.value || '')
+    localStorage.setItem(
+      draftStorageKey.value,
+      JSON.stringify(draftSections.value)
+    )
   }
 
+  /**
+   * Khôi phục nháp: hỗ trợ JSON 4 section; chuỗi thuần (phiên bản cũ) gán vào Introduction.
+   */
   function restoreDraft() {
     if (!draftStorageKey.value) return
-    draftText.value = localStorage.getItem(draftStorageKey.value) || ''
+    const raw = localStorage.getItem(draftStorageKey.value)
+    if (!raw) {
+      draftSections.value = emptyDraftSections()
+      return
+    }
+    try {
+      const parsed = JSON.parse(raw)
+      if (parsed && typeof parsed === 'object' && 'introduction' in parsed) {
+        draftSections.value = { ...emptyDraftSections(), ...parsed }
+        return
+      }
+    } catch {
+      /* legacy plain text */
+    }
+    draftSections.value = { ...emptyDraftSections(), introduction: raw }
   }
 
   function clearDraft() {
     if (!draftStorageKey.value) return
     localStorage.removeItem(draftStorageKey.value)
-    draftText.value = ''
+    draftSections.value = emptyDraftSections()
   }
 
   return {
     loading,
     error,
     writing,
-    draftText,
+    draftSections,
     wordCount,
     timerFormatted,
     timerRemaining,
