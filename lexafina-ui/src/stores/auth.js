@@ -1,38 +1,95 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { api, wireAuthStore } from '../services/api'
+
+const USER_KEY = 'lexafina:user'
 
 /**
- * Store xác thực người dùng.
- * - Lưu token + thông tin user vào localStorage để persist qua reload.
- * - Expose: user, token, isLoggedIn, login(), logout()
+ * Chuẩn hoá user từ API (username) sang field `name` dùng cho UI cũ (band mặc định).
+ */
+function normalizeUser(u) {
+  if (!u) return null
+  return {
+    id: u.id,
+    username: u.username,
+    email: u.email,
+    name: u.name || u.username || u.email,
+    band: u.band ?? '6.5',
+    targetBand: u.targetBand ?? '7.5',
+  }
+}
+
+/**
+ * Gọi một lần từ main.js sau createPinia() — nối token với lớp api (401 refresh).
+ * @param {import('pinia').Store} store
+ */
+export function connectAuthApi(store) {
+  wireAuthStore(store)
+}
+
+/**
+ * Store xác thực: access token trong memory, user (kèm name/band) persist localStorage.
  */
 export const useAuthStore = defineStore('auth', () => {
-  const token = ref(localStorage.getItem('lexafina:token') || '')
-  const user = ref(JSON.parse(localStorage.getItem('lexafina:user') || 'null'))
+  const accessToken = ref('')
+  const user = ref(JSON.parse(localStorage.getItem(USER_KEY) || 'null'))
 
-  const isLoggedIn = computed(() => !!token.value)
+  const isLoggedIn = computed(() => !!(accessToken.value && user.value))
 
-  /** Đăng nhập: nhận dữ liệu từ API response và persist */
-  function login(userData, accessToken) {
-    token.value = accessToken
-    user.value = userData
-    localStorage.setItem('lexafina:token', accessToken)
-    localStorage.setItem('lexafina:user', JSON.stringify(userData))
+  function setAuth({ accessToken: t, user: u }) {
+    accessToken.value = t || ''
+    user.value = normalizeUser(u)
+    if (user.value) {
+      localStorage.setItem(USER_KEY, JSON.stringify(user.value))
+    } else {
+      localStorage.removeItem(USER_KEY)
+    }
   }
 
-  /** Đăng xuất: xoá state + localStorage */
-  function logout() {
-    token.value = ''
+  function clearSession() {
+    accessToken.value = ''
     user.value = null
-    localStorage.removeItem('lexafina:token')
-    localStorage.removeItem('lexafina:user')
+    localStorage.removeItem(USER_KEY)
   }
 
-  /** Cập nhật thông tin user (sau khi chỉnh profile) */
+  /**
+   * Khôi phục session: refresh cookie → access + user.
+   */
+  async function bootstrap() {
+    try {
+      const data = await api.refresh()
+      if (data?.accessToken && data?.user) {
+        setAuth({ accessToken: data.accessToken, user: data.user })
+      }
+    } catch {
+      clearSession()
+    }
+  }
+
+  async function logout() {
+    try {
+      await api.logout()
+    } catch {
+      /* vẫn xoá local */
+    }
+    clearSession()
+  }
+
   function updateUser(partial) {
     user.value = { ...user.value, ...partial }
-    localStorage.setItem('lexafina:user', JSON.stringify(user.value))
+    if (user.value) {
+      localStorage.setItem(USER_KEY, JSON.stringify(user.value))
+    }
   }
 
-  return { token, user, isLoggedIn, login, logout, updateUser }
+  return {
+    accessToken,
+    user,
+    isLoggedIn,
+    setAuth,
+    clearSession,
+    bootstrap,
+    logout,
+    updateUser,
+  }
 })

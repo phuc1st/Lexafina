@@ -3,6 +3,7 @@ import { useAuthStore } from '../stores/auth'
 
 // Lazy-load các trang để tối ưu bundle size
 const LoginView       = () => import('../views/LoginView.vue')
+const RegisterView    = () => import('../views/RegisterView.vue')
 const DashboardPage   = () => import('../views/DashboardPage.vue')
 const PracticeListPage = () => import('../views/PracticeListPage.vue')
 const ReadingPage     = () => import('../views/ReadingPage.vue')
@@ -22,6 +23,12 @@ const router = createRouter({
       path: '/login',
       name: 'login',
       component: LoginView,
+      meta: { requiresGuest: true },
+    },
+    {
+      path: '/register',
+      name: 'register',
+      component: RegisterView,
       meta: { requiresGuest: true },
     },
 

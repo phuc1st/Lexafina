@@ -36,11 +36,11 @@ async function onSubmit() {
 
   loading.value = true
   try {
-    // Demo: giả lập login — thay bằng api.login() khi có backend
-    await new Promise((r) => setTimeout(r, 900))
-    const fakeUser  = { name: 'Người dùng', email: form.email.trim(), band: '6.5' }
-    const fakeToken = 'demo-token-123'
-    auth.login(fakeUser, fakeToken)
+    const data = await api.login({
+      email: form.email.trim(),
+      password: form.password,
+    })
+    auth.setAuth({ accessToken: data.accessToken, user: data.user })
     ui.showToast('Đăng nhập thành công!', 'success')
     router.push({ name: 'dashboard' })
   } catch (err) {
@@ -151,7 +151,9 @@ async function onSubmit() {
       <!-- Sign up link -->
       <p class="text-center text-sm text-slate-500 mt-6">
         Chưa có tài khoản?
-        <a href="#" class="text-brand-600 font-semibold hover:underline">Đăng ký miễn phí</a>
+        <router-link :to="{ name: 'register' }" class="text-brand-600 font-semibold hover:underline">
+          Đăng ký miễn phí
+        </router-link>
       </p>
     </div>
   </AuthLayout>

@@ -59,11 +59,6 @@ public class MockTestController {
                         .body(ApiResponse.notFound("Quiz not found: " + quizId)));
     }
 
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<ApiResponse<Void>> handleBadRequest(IllegalArgumentException ex) {
-        return ResponseEntity.badRequest().body(ApiResponse.badRequest(ex.getMessage()));
-    }
-
     @PostMapping("/submissions")
     public ResponseEntity<ApiResponse<?>> submitAnswers(@RequestBody SubmissionRequest request) {
         return submissionService.evaluate(request)

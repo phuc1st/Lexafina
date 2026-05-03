@@ -54,8 +54,8 @@ function navigate(item) {
   ui.closeSidebar()
 }
 
-function logout() {
-  auth.logout()
+async function logout() {
+  await auth.logout()
   router.push({ name: 'login' })
 }
 
